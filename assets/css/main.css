@@ -1,3 +1,4 @@
+// assets/css/main.css - Update to ensure proper light mode styling
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,6 +6,12 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    /* Ensure light mode colors by default */
+    color-scheme: light;
+  }
+  
+  html.dark {
+    color-scheme: dark;
   }
   
   body {

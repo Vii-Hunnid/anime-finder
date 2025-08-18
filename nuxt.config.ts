@@ -1,6 +1,4 @@
-// nuxt.config.ts
-import tailwindcss from "@tailwindcss/vite";
-
+// nuxt.config.ts - Add theme configuration
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
@@ -9,29 +7,25 @@ export default defineNuxtConfig({
   modules: [
     '@nuxtjs/tailwindcss', 
     '@pinia/nuxt', 
-    // '@nuxt/ui'
   ],
-
-  // postcss: {
-  //   plugins: {
-  //     tailwindcss: {},
-  //   },
-  // },
-
-  // vite: {
-  //   plugins: [tailwindcss()],
-  // },
 
   runtimeConfig: {
     openaiApiKey: process.env.OPENAI_API_KEY,
     justWatchApiKey: process.env.JUSTWATCH_API_KEY,
-    public: { apiBase: process.env.API_BASE || "/api" },
+    public: { 
+      apiBase: process.env.API_BASE || "/api",
+    },
   },
 
   nitro: { experimental: { wasm: true } },
 
+  // Add proper HTML lang and ensure light mode by default
   app: {
     head: {
+      htmlAttrs: {
+        lang: 'en',
+        class: '' // Ensure no dark class by default
+      },
       title: "Anime Finder - AI Scene Identification",
       meta: [
         { name: "description", content: "Describe any anime scene and instantly discover what anime it's from using AI-powered recognition." },
@@ -39,8 +33,24 @@ export default defineNuxtConfig({
         { property: "og:description", content: "Describe any anime scene and instantly discover what anime it's from using AI-powered recognition." },
         { property: "og:image", content: "/og-image.png" },
         { property: "og:type", content: "website" },
+        { name: "color-scheme", content: "light dark" }, // Support both but prefer light
       ],
       link: [{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" }],
+      // Add script to prevent flash of dark mode
+      script: [
+        {
+          innerHTML: `
+            // Prevent flash of dark mode
+            (function() {
+              const theme = localStorage.getItem('theme');
+              if (theme !== 'dark') {
+                document.documentElement.classList.remove('dark');
+              }
+            })();
+          `,
+          type: 'text/javascript'
+        }
+      ]
     },
   },
 });

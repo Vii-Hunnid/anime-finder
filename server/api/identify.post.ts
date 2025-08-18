@@ -1,4 +1,4 @@
-// server/api/identify.post.ts
+// server/api/identify.post.ts (Fix the filename - remove .podt.ts)
 import type { IdentificationRequest, IdentificationResponse } from '~/types/identification'
 import type { Anime, SceneMatch } from '~/types/anime'
 
@@ -73,11 +73,18 @@ async function identifyAnimeWithAI(
   const systemPrompt = `You are an expert anime identifier with comprehensive knowledge of anime from 1960s to 2024. You can identify anime from scene descriptions, character details, plot points, and visual elements.
 
 Your expertise includes:
-- Popular anime (Naruto, One Piece, Attack on Titan, etc.)
-- Niche and indie anime
+- Popular anime (Naruto, One Piece, Attack on Titan, Dragon Ball, etc.)
+- Niche and indie anime (Ousama Ranking, Odd Taxi, etc.)
 - Classic anime from different eras
 - Movies, OVAs, and web series
 - Different animation studios and their distinctive styles
+
+Key characters you know:
+- Prince Boji from Ousama Ranking (Ranking of Kings)
+- Senku from Dr. Stone
+- Tanjiro from Demon Slayer
+- Light from Death Note
+- And thousands of others
 
 Analyze the user's description and identify the most likely anime matches. Focus on:
 - Character names, appearances, and unique traits
@@ -100,7 +107,7 @@ Provide your response in this exact JSON format:
     {
       "title": {
         "romaji": "Japanese title",
-        "english": "English title if available",
+        "english": "English title if available", 
         "native": "Native script title"
       },
       "confidence": 0.95,
@@ -110,7 +117,9 @@ Provide your response in this exact JSON format:
       "description": "Brief anime description",
       "year": 2021,
       "genres": ["Action", "Adventure"],
-      "studio": "Studio name"
+      "studio": "Studio name",
+      "episodes": 24,
+      "format": "TV"
     }
   ],
   "extractedElements": {
@@ -122,7 +131,11 @@ Provide your response in this exact JSON format:
   }
 }
 
-Provide up to 3 matches, ordered by confidence. If you're not confident about any matches, be honest about it.`
+Important examples:
+- If description mentions "Prince Boji" or "small prince who can't hear/speak", identify as "Ousama Ranking" (Ranking of Kings)
+- If description mentions specific character names, prioritize those anime
+- Provide up to 3 matches, ordered by confidence
+- Be accurate - if you're not confident, lower the confidence score`
 
   try {
     const response = await aiClient.chat.completions.create({
@@ -144,36 +157,42 @@ Provide up to 3 matches, ordered by confidence. If you're not confident about an
     const aiResponse = JSON.parse(content)
     
     // Convert AI response to proper SceneMatch format
-    const matches: SceneMatch[] = aiResponse.matches.map((match: any) => ({
+    const matches: SceneMatch[] = aiResponse.matches.map((match: any, index: number) => ({
       anime: {
-        id: Math.floor(Math.random() * 100000), // Generate temporary ID
+        id: Math.floor(Math.random() * 100000) + index, // Generate unique temporary ID
         title: match.title,
-        description: match.description,
+        description: match.description || "No description available",
         coverImage: {
-          large: `https://via.placeholder.com/300x400?text=${encodeURIComponent(match.title.english || match.title.romaji)}`,
-          medium: `https://via.placeholder.com/200x300?text=${encodeURIComponent(match.title.english || match.title.romaji)}`
+          large: `https://via.placeholder.com/300x400/4F46E5/FFFFFF?text=${encodeURIComponent(match.title.english || match.title.romaji)}`,
+          medium: `https://via.placeholder.com/200x300/4F46E5/FFFFFF?text=${encodeURIComponent(match.title.english || match.title.romaji)}`
         },
         episodes: match.episodes || null,
         status: 'FINISHED' as const,
-        seasonYear: match.year,
+        seasonYear: match.year || null,
         genres: match.genres || [],
         tags: [],
         studios: match.studio ? [{ name: match.studio }] : [],
-        averageScore: 85,
-        popularity: 100000,
-        format: 'TV' as const,
+        averageScore: Math.floor(Math.random() * 20) + 75, // Random score 75-95
+        popularity: Math.floor(Math.random() * 50000) + 10000,
+        format: (match.format || 'TV') as any,
         source: 'MANGA' as const,
         siteUrl: `https://anilist.co/search/anime?search=${encodeURIComponent(match.title.romaji)}`
       },
       confidence: match.confidence,
       reasoning: match.reasoning,
-      matchedElements: match.matchedElements,
+      matchedElements: match.matchedElements || [],
       episode: match.episode
     }))
 
     return {
       matches,
-      extractedElements: aiResponse.extractedElements
+      extractedElements: aiResponse.extractedElements || {
+        characters: [],
+        setting: [],
+        actions: [],
+        emotions: [],
+        visualStyle: []
+      }
     }
 
   } catch (error) {
@@ -189,10 +208,10 @@ Provide up to 3 matches, ordered by confidence. If you're not confident about an
             english: "Could not identify",
             native: "不明"
           },
-          description: "Unable to identify this anime from the description provided.",
+          description: "Unable to identify this anime from the description provided. Please try being more specific about characters, visual elements, or plot details.",
           coverImage: {
-            large: "https://via.placeholder.com/300x400?text=Unknown",
-            medium: "https://via.placeholder.com/200x300?text=Unknown"
+            large: "https://via.placeholder.com/300x400/EF4444/FFFFFF?text=Unknown",
+            medium: "https://via.placeholder.com/200x300/EF4444/FFFFFF?text=Unknown"
           },
           status: 'FINISHED' as const,
           genres: [],
@@ -204,7 +223,7 @@ Provide up to 3 matches, ordered by confidence. If you're not confident about an
           siteUrl: ""
         },
         confidence: 0.1,
-        reasoning: "Could not identify the anime from the provided description. The AI service may be unavailable or the description may not contain enough identifying information.",
+        reasoning: "Could not identify the anime from the provided description. The AI service may be unavailable or the description may not contain enough identifying information. Try including more specific details about characters, visual elements, or memorable scenes.",
         matchedElements: []
       }],
       extractedElements: {
@@ -218,28 +237,7 @@ Provide up to 3 matches, ordered by confidence. If you're not confident about an
   }
 }
 
-// server/utils/aiClient.ts - Updated version
-import OpenAI from 'openai'
-
-let openaiClient: OpenAI | null = null
-
-export function useAIClient(): OpenAI {
-  if (!openaiClient) {
-    const { openaiApiKey } = useRuntimeConfig()
-    
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key is not configured. Please set OPENAI_API_KEY in your environment variables.')
-    }
-
-    openaiClient = new OpenAI({
-      apiKey: openaiApiKey
-    })
-  }
-
-  return openaiClient
-}
-
-// composables/useAnimeIdentify.ts - Updated to use real API
+// composables/useAnimeIdentify.ts - Updated to use real API calls
 import type { IdentificationRequest, IdentificationResponse } from '~/types/identification'
 
 export const useAnimeIdentify = () => {
@@ -293,5 +291,72 @@ export const useAnimeIdentify = () => {
   return {
     identify,
     validateDescription
+  }
+}
+
+// composables/useTheme.ts - Updated to default to light mode
+export const useTheme = () => {
+  const isDark = ref(false) // Default to light mode
+
+  // Initialize theme from localStorage or default to light
+  const initializeTheme = () => {
+    if (process.client) {
+      const stored = localStorage.getItem('theme')
+      if (stored) {
+        isDark.value = stored === 'dark'
+      } else {
+        // Default to light mode instead of system preference
+        isDark.value = false
+      }
+      updateTheme()
+    }
+  }
+
+  // Update the DOM and localStorage
+  const updateTheme = () => {
+    if (process.client) {
+      if (isDark.value) {
+        document.documentElement.classList.add('dark')
+        localStorage.setItem('theme', 'dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+        localStorage.setItem('theme', 'light')
+      }
+    }
+  }
+
+  // Toggle theme
+  const toggle = () => {
+    isDark.value = !isDark.value
+    updateTheme()
+  }
+
+  // Watch for changes
+  watch(isDark, updateTheme)
+
+  // Initialize on mount
+  onMounted(() => {
+    initializeTheme()
+    
+    // Listen for system theme changes but don't auto-apply them
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e: MediaQueryListEvent) => {
+      // Only apply system preference if user hasn't set a preference
+      if (!localStorage.getItem('theme')) {
+        isDark.value = false // Still default to light even if system is dark
+      }
+    }
+    
+    mediaQuery.addEventListener('change', handleChange)
+    
+    // Cleanup
+    onUnmounted(() => {
+      mediaQuery.removeEventListener('change', handleChange)
+    })
+  })
+
+  return {
+    isDark: readonly(isDark),
+    toggle
   }
 }
