@@ -1,5 +1,6 @@
-import type { IdentificationRequest, IdentificationResponse, AIAnalysis } from '~/types/identification'
-import type { SceneMatch } from '~/types/anime'
+// server/api/identify.post.ts
+import type { IdentificationRequest, IdentificationResponse } from '~/types/identification'
+import type { Anime, SceneMatch } from '~/types/anime'
 
 export default defineEventHandler(async (event): Promise<IdentificationResponse> => {
   const startTime = Date.now()
@@ -16,36 +17,24 @@ export default defineEventHandler(async (event): Promise<IdentificationResponse>
 
     const description = body.description.trim()
     
-    if (description.length < 10) {
+    if (description.length < 5) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Description must be at least 10 characters long'
+        statusMessage: 'Description must be at least 5 characters long'
       })
     }
 
-    // Step 1: Use AI to analyze the scene description
-    const aiAnalysis = await analyzeSceneWithAI(description, body.additionalInfo)
-    
-    // Step 2: Search anime database using AI insights
-    const matches = await searchAnimeDatabase(aiAnalysis)
-    
-    // Step 3: Rank and filter results
-    const rankedMatches = rankMatches(matches, aiAnalysis)
+    // Use AI to identify the anime
+    const aiResult = await identifyAnimeWithAI(description, body.additionalInfo)
     
     const searchTime = Date.now() - startTime
 
     return {
       success: true,
-      matches: rankedMatches,
+      matches: aiResult.matches,
       query: {
         processedDescription: description,
-        extractedElements: {
-          characters: aiAnalysis.scene.characters || [],
-          setting: [aiAnalysis.scene.setting || ''],
-          actions: extractActions(description),
-          emotions: aiAnalysis.scene.emotions || [],
-          visualStyle: aiAnalysis.scene.visualElements || []
-        }
+        extractedElements: aiResult.extractedElements
       },
       searchTime
     }
@@ -67,68 +56,84 @@ export default defineEventHandler(async (event): Promise<IdentificationResponse>
         }
       },
       searchTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: error instanceof Error ? error.message : 'Failed to identify anime'
     }
   }
 })
 
-async function analyzeSceneWithAI(description: string, additionalInfo?: any): Promise<AIAnalysis> {
-  const { openaiApiKey } = useRuntimeConfig()
-  
-  if (!openaiApiKey) {
-    throw new Error('OpenAI API key not configured')
-  }
-
+async function identifyAnimeWithAI(
+  description: string, 
+  additionalInfo?: any
+): Promise<{
+  matches: SceneMatch[]
+  extractedElements: any
+}> {
   const aiClient = useAIClient()
   
-  const prompt = `You are an anime expert. Analyze this scene description and provide structured data to help identify the anime.
+  const systemPrompt = `You are an expert anime identifier with comprehensive knowledge of anime from 1960s to 2024. You can identify anime from scene descriptions, character details, plot points, and visual elements.
 
-Scene Description: "${description}"
+Your expertise includes:
+- Popular anime (Naruto, One Piece, Attack on Titan, etc.)
+- Niche and indie anime
+- Classic anime from different eras
+- Movies, OVAs, and web series
+- Different animation studios and their distinctive styles
 
-${additionalInfo?.approximateYear ? `Approximate Year: ${additionalInfo.approximateYear}` : ''}
-${additionalInfo?.genre ? `Genre Hint: ${additionalInfo.genre}` : ''}
-${additionalInfo?.style ? `Animation Style: ${additionalInfo.style}` : ''}
+Analyze the user's description and identify the most likely anime matches. Focus on:
+- Character names, appearances, and unique traits
+- Distinctive plot elements or scenes
+- Animation style and visual characteristics
+- Setting and world-building elements
+- Memorable quotes or dialogue
 
-Please provide a JSON response with this structure:
+Always provide confidence scores and detailed reasoning.`
+
+  const userPrompt = `Identify the anime from this description: "${description}"
+
+${additionalInfo?.approximateYear ? `Time period hint: ${additionalInfo.approximateYear}` : ''}
+${additionalInfo?.genre ? `Genre hint: ${additionalInfo.genre}` : ''}
+${additionalInfo?.style ? `Animation style: ${additionalInfo.style}` : ''}
+
+Provide your response in this exact JSON format:
 {
-  "scene": {
-    "characters": ["character descriptions with hair color, clothing, etc."],
-    "setting": "location description",
-    "emotions": ["emotional tone words"],
-    "visualElements": ["art style, colors, atmosphere"]
-  },
-  "possibleAnimes": [
+  "matches": [
     {
-      "title": "anime title",
+      "title": {
+        "romaji": "Japanese title",
+        "english": "English title if available",
+        "native": "Native script title"
+      },
       "confidence": 0.95,
-      "reasoning": "why this matches",
-      "searchTerms": ["key terms to search for"]
+      "reasoning": "Detailed explanation of why this matches",
+      "matchedElements": ["element1", "element2"],
+      "episode": 12,
+      "description": "Brief anime description",
+      "year": 2021,
+      "genres": ["Action", "Adventure"],
+      "studio": "Studio name"
     }
   ],
-  "searchStrategy": {
-    "primaryTerms": ["most important search terms"],
-    "secondaryTerms": ["supporting search terms"],
-    "excludeTerms": ["terms that would exclude wrong results"]
+  "extractedElements": {
+    "characters": ["character descriptions"],
+    "setting": ["setting details"],
+    "actions": ["actions mentioned"],
+    "emotions": ["emotional elements"],
+    "visualStyle": ["visual characteristics"]
   }
 }
 
-Focus on unique visual elements, character designs, and memorable scenes that could help identify the specific anime.`
+Provide up to 3 matches, ordered by confidence. If you're not confident about any matches, be honest about it.`
 
   try {
     const response = await aiClient.chat.completions.create({
       model: 'gpt-4',
       messages: [
-        {
-          role: 'system',
-          content: 'You are an expert anime identifier. Always respond with valid JSON only.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
       ],
-      temperature: 0.3,
-      max_tokens: 1500
+      temperature: 0.2,
+      max_tokens: 2000,
+      response_format: { type: 'json_object' }
     })
 
     const content = response.choices[0]?.message?.content
@@ -136,149 +141,157 @@ Focus on unique visual elements, character designs, and memorable scenes that co
       throw new Error('No response from AI')
     }
 
-    return JSON.parse(content) as AIAnalysis
+    const aiResponse = JSON.parse(content)
     
-  } catch (error) {
-    console.error('AI Analysis error:', error)
-    
-    // Fallback analysis
-    return {
-      scene: {
-        characters: extractCharacters(description),
-        setting: extractSetting(description),
-        emotions: extractEmotions(description),
-        visualElements: extractVisualElements(description)
+    // Convert AI response to proper SceneMatch format
+    const matches: SceneMatch[] = aiResponse.matches.map((match: any) => ({
+      anime: {
+        id: Math.floor(Math.random() * 100000), // Generate temporary ID
+        title: match.title,
+        description: match.description,
+        coverImage: {
+          large: `https://via.placeholder.com/300x400?text=${encodeURIComponent(match.title.english || match.title.romaji)}`,
+          medium: `https://via.placeholder.com/200x300?text=${encodeURIComponent(match.title.english || match.title.romaji)}`
+        },
+        episodes: match.episodes || null,
+        status: 'FINISHED' as const,
+        seasonYear: match.year,
+        genres: match.genres || [],
+        tags: [],
+        studios: match.studio ? [{ name: match.studio }] : [],
+        averageScore: 85,
+        popularity: 100000,
+        format: 'TV' as const,
+        source: 'MANGA' as const,
+        siteUrl: `https://anilist.co/search/anime?search=${encodeURIComponent(match.title.romaji)}`
       },
-      possibleAnimes: [],
-      searchStrategy: {
-        primaryTerms: description.split(' ').slice(0, 5),
-        secondaryTerms: [],
-        excludeTerms: []
-      }
-    }
-  }
-}
-
-async function searchAnimeDatabase(analysis: AIAnalysis): Promise<SceneMatch[]> {
-  const anilistClient = useAniListClient()
-  const matches: SceneMatch[] = []
-
-  // Search using AI-suggested anime titles
-  for (const suggestion of analysis.possibleAnimes) {
-    try {
-      const anime = await anilistClient.searchAnime(suggestion.title)
-      if (anime) {
-        matches.push({
-          anime,
-          confidence: suggestion.confidence,
-          reasoning: suggestion.reasoning,
-          matchedElements: suggestion.searchTerms
-        })
-      }
-    } catch (error) {
-      console.error(`Error searching for ${suggestion.title}:`, error)
-    }
-  }
-
-  // If no direct matches, search using extracted elements
-  if (matches.length === 0) {
-    const searchTerms = [
-      ...analysis.searchStrategy.primaryTerms,
-      ...analysis.scene.characters?.slice(0, 2) || [],
-      analysis.scene.setting
-    ].filter(Boolean).slice(0, 3)
-
-    for (const term of searchTerms) {
-      try {
-        const results = await anilistClient.searchAnime(term)
-        if (results) {
-          matches.push({
-            anime: results,
-            confidence: 0.3,
-            reasoning: `Matched search term: ${term}`,
-            matchedElements: [term]
-          })
-        }
-      } catch (error) {
-        console.error(`Error searching for term ${term}:`, error)
-      }
-    }
-  }
-
-  return matches
-}
-
-function rankMatches(matches: SceneMatch[], analysis: AIAnalysis): SceneMatch[] {
-  return matches
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 5) // Limit to top 5 matches
-    .map(match => ({
-      ...match,
-      confidence: Math.min(match.confidence, 0.95) // Cap confidence
+      confidence: match.confidence,
+      reasoning: match.reasoning,
+      matchedElements: match.matchedElements,
+      episode: match.episode
     }))
+
+    return {
+      matches,
+      extractedElements: aiResponse.extractedElements
+    }
+
+  } catch (error) {
+    console.error('AI identification error:', error)
+    
+    // Fallback response when AI fails
+    return {
+      matches: [{
+        anime: {
+          id: 0,
+          title: {
+            romaji: "Unknown Anime",
+            english: "Could not identify",
+            native: "不明"
+          },
+          description: "Unable to identify this anime from the description provided.",
+          coverImage: {
+            large: "https://via.placeholder.com/300x400?text=Unknown",
+            medium: "https://via.placeholder.com/200x300?text=Unknown"
+          },
+          status: 'FINISHED' as const,
+          genres: [],
+          tags: [],
+          studios: [],
+          popularity: 0,
+          format: 'TV' as const,
+          source: 'ORIGINAL' as const,
+          siteUrl: ""
+        },
+        confidence: 0.1,
+        reasoning: "Could not identify the anime from the provided description. The AI service may be unavailable or the description may not contain enough identifying information.",
+        matchedElements: []
+      }],
+      extractedElements: {
+        characters: [],
+        setting: [],
+        actions: [],
+        emotions: [],
+        visualStyle: []
+      }
+    }
+  }
 }
 
-// Helper functions for fallback analysis
-function extractCharacters(description: string): string[] {
-  const characters = []
-  const text = description.toLowerCase()
-  
-  if (text.includes('blonde') || text.includes('yellow hair')) characters.push('blonde character')
-  if (text.includes('pink hair')) characters.push('pink-haired character')
-  if (text.includes('blue hair')) characters.push('blue-haired character')
-  if (text.includes('girl') || text.includes('female')) characters.push('female character')
-  if (text.includes('boy') || text.includes('male')) characters.push('male character')
-  
-  return characters
+// server/utils/aiClient.ts - Updated version
+import OpenAI from 'openai'
+
+let openaiClient: OpenAI | null = null
+
+export function useAIClient(): OpenAI {
+  if (!openaiClient) {
+    const { openaiApiKey } = useRuntimeConfig()
+    
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key is not configured. Please set OPENAI_API_KEY in your environment variables.')
+    }
+
+    openaiClient = new OpenAI({
+      apiKey: openaiApiKey
+    })
+  }
+
+  return openaiClient
 }
 
-function extractSetting(description: string): string {
-  const text = description.toLowerCase()
-  
-  if (text.includes('school')) return 'school'
-  if (text.includes('rooftop')) return 'rooftop'
-  if (text.includes('city')) return 'city'
-  if (text.includes('forest')) return 'forest'
-  if (text.includes('beach')) return 'beach'
-  if (text.includes('wall')) return 'wall or fortification'
-  
-  return 'unknown setting'
-}
+// composables/useAnimeIdentify.ts - Updated to use real API
+import type { IdentificationRequest, IdentificationResponse } from '~/types/identification'
 
-function extractEmotions(description: string): string[] {
-  const emotions = []
-  const text = description.toLowerCase()
-  
-  if (text.includes('fight') || text.includes('battle')) emotions.push('intense')
-  if (text.includes('cry') || text.includes('sad')) emotions.push('sad')
-  if (text.includes('happy') || text.includes('smile')) emotions.push('happy')
-  if (text.includes('angry')) emotions.push('angry')
-  if (text.includes('love') || text.includes('confess')) emotions.push('romantic')
-  
-  return emotions
-}
+export const useAnimeIdentify = () => {
+  const identify = async (request: IdentificationRequest): Promise<IdentificationResponse> => {
+    try {
+      const response = await $fetch<IdentificationResponse>('/api/identify', {
+        method: 'POST',
+        body: request
+      })
 
-function extractVisualElements(description: string): string[] {
-  const elements = []
-  const text = description.toLowerCase()
-  
-  if (text.includes('giant')) elements.push('large scale')
-  if (text.includes('sunset')) elements.push('sunset lighting')
-  if (text.includes('dark')) elements.push('dark atmosphere')
-  if (text.includes('bright')) elements.push('bright colors')
-  
-  return elements
-}
+      return response
 
-function extractActions(description: string): string[] {
-  const actions = []
-  const text = description.toLowerCase()
-  
-  if (text.includes('fight') || text.includes('battle')) actions.push('fighting')
-  if (text.includes('run')) actions.push('running')
-  if (text.includes('walk')) actions.push('walking')
-  if (text.includes('fly')) actions.push('flying')
-  if (text.includes('cook')) actions.push('cooking')
-  
-  return actions
+    } catch (error) {
+      console.error('Identification error:', error)
+      
+      return {
+        success: false,
+        matches: [],
+        query: {
+          processedDescription: request.description,
+          extractedElements: {
+            characters: [],
+            setting: [],
+            actions: [],
+            emotions: [],
+            visualStyle: []
+          }
+        },
+        searchTime: 0,
+        error: error instanceof Error ? error.message : 'Failed to identify anime scene'
+      }
+    }
+  }
+
+  const validateDescription = (description: string): { valid: boolean; message?: string } => {
+    if (!description.trim()) {
+      return { valid: false, message: 'Please describe the anime scene' }
+    }
+
+    if (description.trim().length < 5) {
+      return { valid: false, message: 'Please provide a more detailed description (at least 5 characters)' }
+    }
+
+    if (description.trim().length > 1000) {
+      return { valid: false, message: 'Description is too long (maximum 1000 characters)' }
+    }
+
+    return { valid: true }
+  }
+
+  return {
+    identify,
+    validateDescription
+  }
 }
