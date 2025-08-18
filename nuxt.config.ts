@@ -1,6 +1,4 @@
 // nuxt.config.ts
-import tailwindcss from "@tailwindcss/vite";
-
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
@@ -11,16 +9,6 @@ export default defineNuxtConfig({
     '@pinia/nuxt', 
     // '@nuxt/ui'
   ],
-
-  // postcss: {
-  //   plugins: {
-  //     tailwindcss: {},
-  //   },
-  // },
-
-  // vite: {
-  //   plugins: [tailwindcss()],
-  // },
 
   runtimeConfig: {
     openaiApiKey: process.env.OPENAI_API_KEY,
