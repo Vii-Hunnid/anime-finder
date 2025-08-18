@@ -4,19 +4,14 @@ import type { IdentificationRequest, IdentificationResponse } from '~/types/iden
 export const useAnimeIdentify = () => {
   const identify = async (request: IdentificationRequest): Promise<IdentificationResponse> => {
     try {
-      console.log('Making API call to /api/identify with:', request)
+      console.log('Making API call to /api/identify')
       
       const response = await $fetch<IdentificationResponse>('/api/identify', {
         method: 'POST',
         body: request
       })
 
-      console.log('API response:', response)
-
-      if (!response.success) {
-        throw new Error(response.error || 'Identification failed')
-      }
-
+      console.log('API response received:', response)
       return response
 
     } catch (error) {
