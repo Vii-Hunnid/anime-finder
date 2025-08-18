@@ -1,13 +1,31 @@
-// app.vue - Add theme initialization
 <template>
-  <div class="min-h-screen gradient-bg">
-    <Header />
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <!-- Header -->
+    <header class="border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+      <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center">
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Anime Finder
+          </h1>
+        </div>
+        <nav class="hidden md:flex items-center space-x-6">
+          <a href="#how-it-works" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+            How it Works
+          </a>
+          <a href="#about" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+            About
+          </a>
+        </nav>
+      </div>
+    </header>
     
     <main class="container mx-auto px-4 py-8">
       <!-- Hero Section -->
       <section class="text-center mb-12">
         <h1 class="text-4xl md:text-6xl font-bold mb-6">
-          <span class="text-gradient">Anime Finder</span>
+          <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Anime Finder
+          </span>
         </h1>
         <p class="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
           Describe any anime scene and instantly discover what show it's from using AI-powered recognition
@@ -22,7 +40,7 @@
       </section>
 
       <!-- How It Works -->
-      <HowItWorks v-if="!hasSearched" class="mb-12" />
+      <HowItWorks v-if="!hasSearched" id="how-it-works" class="mb-12" />
 
       <!-- Search Results -->
       <section v-if="hasSearched" class="mb-12">
@@ -47,14 +65,12 @@
           </div>
 
           <!-- Additional Info -->
-          <div class="grid md:grid-cols-2 gap-6 mt-8">
+          <div v-if="selectedAnime" class="grid md:grid-cols-2 gap-6 mt-8">
             <StreamingLinks 
-              v-if="selectedAnime"
               :anime="selectedAnime"
             />
             
             <FandomLinks 
-              v-if="selectedAnime"
               :anime="selectedAnime"
             />
           </div>
@@ -76,7 +92,7 @@
           </p>
           <button 
             @click="clearSearch" 
-            class="btn-primary"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
           >
             Try Another Search
           </button>
@@ -84,13 +100,79 @@
       </section>
     </main>
 
-    <Footer />
+    <!-- Footer -->
+    <footer class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 mt-16">
+      <div class="container mx-auto px-4 py-8">
+        <div class="text-center">
+          <p class="text-gray-600 dark:text-gray-400 mb-4">
+            Powered by AI to help anime fans find their favorite shows
+          </p>
+          <div class="flex justify-center space-x-6 text-sm text-gray-500 dark:text-gray-500">
+            <a href="#" class="hover:text-blue-600 dark:hover:text-blue-400">Privacy</a>
+            <a href="#" class="hover:text-blue-600 dark:hover:text-blue-400">Terms</a>
+            <a href="#" class="hover:text-blue-600 dark:hover:text-blue-400">Contact</a>
+          </div>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { IdentificationRequest, IdentificationResponse, ProcessingStatus } from '~/types/identification'
-import type { Anime } from '~/types/anime'
+// Import components
+import SearchForm from '~/components/SearchForm.vue'
+import ResultCard from '~/components/ResultCard.vue'
+import StreamingLinks from '~/components/StreamingLinks.vue'
+import FandomLinks from '~/components/FandomLinks.vue'
+import RecommendationGrid from '~/components/RecommendationGrid.vue'
+import LoadingSpinner from '~/components/LoadingSpinner.vue'
+import ErrorMessage from '~/components/ErrorMessage.vue'
+import HowItWorks from '~/components/HowItWorks.vue'
+
+// Types
+interface Anime {
+  id: string
+  title: {
+    english?: string
+    romaji: string
+  }
+  description?: string
+  coverImage: {
+    large: string
+    medium: string
+  }
+  genres: string[]
+  episodes?: number
+  seasonYear?: number
+  averageScore?: number
+  status: string
+  format: string
+  studios: Array<{ name: string }>
+  tags?: Array<{ name: string }>
+  siteUrl: string
+  source: string
+}
+
+interface SceneMatch {
+  anime: Anime
+  confidence: number
+  reasoning: string
+  episode?: number
+  timestamp?: string
+  matchedElements: string[]
+}
+
+interface IdentificationResponse {
+  matches: SceneMatch[]
+  searchQuery: string
+  processingTime: number
+}
+
+interface ProcessingStatus {
+  stage: 'analyzing' | 'searching' | 'matching' | 'complete' | 'error'
+  message: string
+  progress: number
+}
 
 // State
 const isSearching = ref(false)
@@ -107,7 +189,54 @@ const searchStatus = ref<ProcessingStatus>({
 // Last search query for retry functionality
 const lastSearchQuery = ref<string>('')
 
-// Composables
+// Mock anime identify function (replace with real API call)
+const useAnimeIdentify = () => {
+  const identify = async (request: { description: string }): Promise<IdentificationResponse> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Mock response - replace with actual API call
+    const mockAnime: Anime = {
+      id: '16498',
+      title: {
+        english: 'Attack on Titan',
+        romaji: 'Shingeki no Kyojin'
+      },
+      description: 'Humanity fights for survival against giant humanoid Titans that have brought civilization to the brink of extinction.',
+      coverImage: {
+        large: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-73IhOXpJZiMF.jpg',
+        medium: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx16498-73IhOXpJZiMF.jpg'
+      },
+      genres: ['Action', 'Drama', 'Fantasy', 'Military'],
+      episodes: 25,
+      seasonYear: 2013,
+      averageScore: 87,
+      status: 'FINISHED',
+      format: 'TV',
+      studios: [{ name: 'Mappa' }],
+      tags: [{ name: 'Military' }, { name: 'Survival' }],
+      siteUrl: 'https://anilist.co/anime/16498',
+      source: 'MANGA'
+    }
+
+    const mockMatch: SceneMatch = {
+      anime: mockAnime,
+      confidence: 0.92,
+      reasoning: 'Scene matches the description of characters fighting giant humanoid creatures on walls, which is a signature element of Attack on Titan.',
+      episode: 5,
+      matchedElements: ['giant humanoid creatures', 'wall setting', 'blonde character', 'action sequence']
+    }
+
+    return {
+      matches: [mockMatch],
+      searchQuery: request.description,
+      processingTime: 2000
+    }
+  }
+
+  return { identify }
+}
+
 const { identify } = useAnimeIdentify()
 
 // Force light mode on app initialization
@@ -123,7 +252,7 @@ onMounted(() => {
 })
 
 // Methods
-const handleSearch = async (description: string) => {
+const handleSearch = async (description: string, filters?: any) => {
   if (!description.trim()) return
   
   isSearching.value = true
@@ -140,11 +269,7 @@ const handleSearch = async (description: string) => {
     
     updateSearchStatus('searching', 'Searching anime database...', 50)
     
-    const request: IdentificationRequest = {
-      description: description.trim()
-    }
-    
-    const results = await identify(request)
+    const results = await identify({ description: description.trim() })
     
     updateSearchStatus('matching', 'Finding best matches...', 75)
     await new Promise(resolve => setTimeout(resolve, 500))

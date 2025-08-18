@@ -1,9 +1,10 @@
+// Core anime data types
 export interface Anime {
-  id: number
+  id: string
   title: {
-    romaji: string
     english?: string
-    native: string
+    romaji: string
+    native?: string
   }
   description?: string
   coverImage: {
@@ -12,122 +13,194 @@ export interface Anime {
     color?: string
   }
   bannerImage?: string
+  genres: string[]
   episodes?: number
   duration?: number
-  status: 'FINISHED' | 'RELEASING' | 'NOT_YET_RELEASED' | 'CANCELLED'
-  season?: 'WINTER' | 'SPRING' | 'SUMMER' | 'FALL'
   seasonYear?: number
-  genres: string[]
-  tags: Array<{
-    name: string
-    rank: number
-  }>
-  studios: Array<{
-    name: string
-  }>
+  season?: 'WINTER' | 'SPRING' | 'SUMMER' | 'FALL'
   averageScore?: number
   meanScore?: number
-  popularity: number
-  format: 'TV' | 'MOVIE' | 'OVA' | 'ONA' | 'SPECIAL' | 'MUSIC'
-  source: 'ORIGINAL' | 'MANGA' | 'ANIME' | 'LIGHT_NOVEL' | 'VISUAL_NOVEL' | 'VIDEO_GAME' | 'OTHER'
+  popularity?: number
+  status: 'FINISHED' | 'RELEASING' | 'NOT_YET_RELEASED' | 'CANCELLED' | 'HIATUS'
+  format: 'TV' | 'TV_SHORT' | 'MOVIE' | 'SPECIAL' | 'OVA' | 'ONA' | 'MUSIC'
+  studios: Array<{
+    id: string
+    name: string
+    isMain?: boolean
+  }>
+  tags?: Array<{
+    id: string
+    name: string
+    description?: string
+    rank?: number
+    isMediaSpoiler?: boolean
+  }>
+  relations?: Array<{
+    id: string
+    relationType: string
+    title: {
+      english?: string
+      romaji: string
+    }
+  }>
+  characters?: Array<{
+    id: string
+    name: {
+      first?: string
+      last?: string
+      full: string
+    }
+    image: {
+      large: string
+      medium: string
+    }
+    role?: string
+  }>
+  staff?: Array<{
+    id: string
+    name: {
+      first?: string
+      last?: string
+      full: string
+    }
+    role: string
+  }>
   siteUrl: string
+  source: 'ORIGINAL' | 'MANGA' | 'LIGHT_NOVEL' | 'VISUAL_NOVEL' | 'VIDEO_GAME' | 'OTHER'
+  trailer?: {
+    id: string
+    site: string
+    thumbnail: string
+  }
+  updatedAt?: number
+  nextAiringEpisode?: {
+    airingAt: number
+    timeUntilAiring: number
+    episode: number
+  }
 }
 
-export interface AnimeScene {
-  description: string
-  episode?: number
-  timestamp?: string
-  characters?: string[]
-  setting?: string
-  emotions?: string[]
-  visualElements?: string[]
-  dialogue?: string[]
-  actions?: string[]
-}
-
+// Scene matching types
 export interface SceneMatch {
   anime: Anime
   confidence: number
   reasoning: string
-  matchedElements: string[]
   episode?: number
   timestamp?: string
-  score?: number
+  matchedElements: string[]
+  sceneDescription?: string
+  characterMatches?: string[]
+  settingMatches?: string[]
+  plotMatches?: string[]
 }
 
-export interface AnimeCharacter {
-  id: number
-  name: {
-    full: string
-    native?: string
+// Search and identification types
+export interface IdentificationRequest {
+  description: string
+  additionalInfo?: {
+    approximateYear?: string
+    genre?: string
+    style?: string
+    characterCount?: number
+    setting?: string
+    language?: 'sub' | 'dub' | 'both'
   }
-  image?: {
-    large: string
-    medium: string
+  options?: {
+    maxResults?: number
+    minConfidence?: number
+    includeAdult?: boolean
   }
-  description?: string
-  role?: 'MAIN' | 'SUPPORTING' | 'BACKGROUND'
 }
 
-export interface AnimeStudio {
-  id: number
-  name: string
-  isAnimationStudio: boolean
-  siteUrl?: string
+export interface IdentificationResponse {
+  success: boolean
+  matches: SceneMatch[]
+  searchQuery: string
+  processingTime: number
+  totalPossibleMatches?: number
+  searchMetadata?: {
+    analyzedElements: string[]
+    keyTerms: string[]
+    confidence: number
+  }
+  error?: string
 }
 
-export interface AnimeTag {
-  id: number
-  name: string
-  description?: string
-  category?: string
-  rank?: number
-  isMediaSpoiler?: boolean
-  isGeneralSpoiler?: boolean
+// Processing status
+export interface ProcessingStatus {
+  stage: 'analyzing' | 'searching' | 'matching' | 'complete' | 'error'
+  message: string
+  progress: number
+  currentStep?: string
+  estimatedTimeRemaining?: number
 }
 
-export interface AnimeStats {
-  scoreDistribution?: Array<{
-    score: number
-    amount: number
-  }>
-  statusDistribution?: Array<{
-    status: string
-    amount: number
-  }>
-}
-
-export interface AnimeRelation {
-  id: number
-  relationType: 'SEQUEL' | 'PREQUEL' | 'SIDE_STORY' | 'ALTERNATIVE' | 'SUMMARY' | 'OTHER'
+// Recommendation types
+export interface AnimeRecommendation {
   anime: Anime
+  score: number
+  reason: string
+  similarities: string[]
+  recommendationType: 'genre' | 'studio' | 'staff' | 'user' | 'ai'
 }
 
-// Utility types for search and filtering
-export type AnimeStatus = Anime['status']
-export type AnimeFormat = Anime['format']
-export type AnimeSeason = Anime['season']
-export type AnimeSource = Anime['source']
+// User preferences (for personalized recommendations)
+export interface UserPreferences {
+  favoriteGenres: string[]
+  dislikedGenres: string[]
+  preferredFormats: string[]
+  languagePreference: 'sub' | 'dub' | 'both'
+  maturityRating: 'all' | 'teen' | 'mature'
+  watchedAnime: string[] // anime IDs
+  watchlist: string[] // anime IDs
+  ratings: Record<string, number> // anime ID -> rating
+}
 
-export interface AnimeSearchFilters {
+// Search filters
+export interface SearchFilters {
   genres?: string[]
-  tags?: string[]
-  year?: number
-  season?: AnimeSeason
-  format?: AnimeFormat
-  status?: AnimeStatus
-  source?: AnimeSource
-  minimumScore?: number
-  sort?: 'POPULARITY_DESC' | 'SCORE_DESC' | 'TITLE_ROMAJI' | 'START_DATE_DESC'
+  excludeGenres?: string[]
+  year?: number | [number, number]
+  format?: string[]
+  status?: string[]
+  source?: string[]
+  minScore?: number
+  minPopularity?: number
+  studios?: string[]
+  sort?: 'POPULARITY_DESC' | 'SCORE_DESC' | 'TRENDING_DESC' | 'START_DATE_DESC'
 }
 
-export interface AnimeSearchResult {
-  data: Anime[]
-  pageInfo: {
+// API response wrapper
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+  timestamp: number
+  requestId?: string
+}
+
+// Paginated results
+export interface PaginatedResponse<T> {
+  items: T[]
+  pagination: {
     total: number
-    currentPage: number
-    lastPage: number
-    hasNextPage: boolean
+    page: number
     perPage: number
+    hasNextPage: boolean
   }
+}
+
+// Export commonly used types as default
+export type {
+  Anime as default,
+  SceneMatch,
+  IdentificationRequest,
+  IdentificationResponse,
+  ProcessingStatus,
+  AnimeRecommendation,
+  UserPreferences,
+  SearchFilters,
+  ApiResponse,
+  PaginatedResponse
 }
