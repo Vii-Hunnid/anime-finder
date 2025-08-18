@@ -189,54 +189,7 @@ const searchStatus = ref<ProcessingStatus>({
 // Last search query for retry functionality
 const lastSearchQuery = ref<string>('')
 
-// Mock anime identify function (replace with real API call)
-const useAnimeIdentify = () => {
-  const identify = async (request: { description: string }): Promise<IdentificationResponse> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Mock response - replace with actual API call
-    const mockAnime: Anime = {
-      id: '16498',
-      title: {
-        english: 'Attack on Titan',
-        romaji: 'Shingeki no Kyojin'
-      },
-      description: 'Humanity fights for survival against giant humanoid Titans that have brought civilization to the brink of extinction.',
-      coverImage: {
-        large: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-73IhOXpJZiMF.jpg',
-        medium: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx16498-73IhOXpJZiMF.jpg'
-      },
-      genres: ['Action', 'Drama', 'Fantasy', 'Military'],
-      episodes: 25,
-      seasonYear: 2013,
-      averageScore: 87,
-      status: 'FINISHED',
-      format: 'TV',
-      studios: [{ name: 'Mappa' }],
-      tags: [{ name: 'Military' }, { name: 'Survival' }],
-      siteUrl: 'https://anilist.co/anime/16498',
-      source: 'MANGA'
-    }
-
-    const mockMatch: SceneMatch = {
-      anime: mockAnime,
-      confidence: 0.92,
-      reasoning: 'Scene matches the description of characters fighting giant humanoid creatures on walls, which is a signature element of Attack on Titan.',
-      episode: 5,
-      matchedElements: ['giant humanoid creatures', 'wall setting', 'blonde character', 'action sequence']
-    }
-
-    return {
-      matches: [mockMatch],
-      searchQuery: request.description,
-      processingTime: 2000
-    }
-  }
-
-  return { identify }
-}
-
+// Import the real useAnimeIdentify composable instead of the mock one
 const { identify } = useAnimeIdentify()
 
 // Force light mode on app initialization
@@ -269,18 +222,31 @@ const handleSearch = async (description: string, filters?: any) => {
     
     updateSearchStatus('searching', 'Searching anime database...', 50)
     
-    const results = await identify({ description: description.trim() })
+    // Use the real API with proper request format
+    const request: IdentificationRequest = {
+      description: description.trim(),
+      additionalInfo: filters
+    }
+    
+    const results = await identify(request)
     
     updateSearchStatus('matching', 'Finding best matches...', 75)
     await new Promise(resolve => setTimeout(resolve, 500))
     
     updateSearchStatus('complete', 'Search complete!', 100)
     
-    searchResults.value = results
+    // Convert the API response to the expected format
+    const convertedResults: IdentificationResponse = {
+      matches: results.matches || [],
+      searchQuery: description,
+      processingTime: results.searchTime || 2000
+    }
+    
+    searchResults.value = convertedResults
     
     // Auto-select first match if confidence is high
-    if (results.matches.length > 0 && results.matches[0].confidence > 0.8) {
-      selectedAnime.value = results.matches[0].anime
+    if (convertedResults.matches.length > 0 && convertedResults.matches[0].confidence > 0.8) {
+      selectedAnime.value = convertedResults.matches[0].anime
     }
     
   } catch (err) {
