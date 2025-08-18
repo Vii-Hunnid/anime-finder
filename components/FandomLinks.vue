@@ -47,7 +47,7 @@
                 rel="noopener noreferrer"
                 class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
               >
-                <ExternalLinkIcon class="w-4 h-4 mr-2" />
+                <ArrowTopRightOnSquareIcon class="w-4 h-4 mr-2" />
                 Visit {{ displayTitle }} Wiki
               </a>
             </div>
@@ -177,7 +177,6 @@ import {
   BookOpenIcon, 
   DocumentTextIcon, 
   ArrowTopRightOnSquareIcon,
-  ExternalLinkIcon,
   PlayIcon,
   FilmIcon,
   TvIcon
