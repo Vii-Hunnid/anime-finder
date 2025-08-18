@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
-  css: ['~/assets/css/main.css'],
+  // css: ['~/assets/css/main.css'],
 
   modules: [
     '@nuxtjs/tailwindcss', 
@@ -12,15 +12,15 @@ export default defineNuxtConfig({
     '@nuxt/ui',
   ],
 
-  postcss: {
-    plugins: {
-      tailwindcss: {},
-    },
-  },
+  // postcss: {
+  //   plugins: {
+  //     tailwindcss: {},
+  //   },
+  // },
 
-  vite: {
-    plugins: [tailwindcss()],
-  },
+  // vite: {
+  //   plugins: [tailwindcss()],
+  // },
 
   runtimeConfig: {
     openaiApiKey: process.env.OPENAI_API_KEY,
