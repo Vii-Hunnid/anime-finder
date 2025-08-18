@@ -1,4 +1,6 @@
-// nuxt.config.ts - Add theme configuration
+// nuxt.config.ts
+import tailwindcss from "@tailwindcss/vite";
+
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
@@ -7,19 +9,27 @@ export default defineNuxtConfig({
   modules: [
     '@nuxtjs/tailwindcss', 
     '@pinia/nuxt', 
+    // '@nuxt/ui'
   ],
+
+  // postcss: {
+  //   plugins: {
+  //     tailwindcss: {},
+  //   },
+  // },
+
+  // vite: {
+  //   plugins: [tailwindcss()],
+  // },
 
   runtimeConfig: {
     openaiApiKey: process.env.OPENAI_API_KEY,
     justWatchApiKey: process.env.JUSTWATCH_API_KEY,
-    public: { 
-      apiBase: process.env.API_BASE || "/api",
-    },
+    public: { apiBase: process.env.API_BASE || "/api" },
   },
 
   nitro: { experimental: { wasm: true } },
 
-  // Add proper HTML lang and ensure light mode by default
   app: {
     head: {
       htmlAttrs: {
