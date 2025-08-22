@@ -115,6 +115,11 @@
         </div>
       </div>
     </footer>
+    
+    <!-- Fallback -->
+    <noscript>
+      <img src="https://www.sitetooling.space/noscript.gif?token=st_ffrR8xk3yL7remhmDNSWymPUY5286yLX_men8a5g3" alt="sitetooling.space" />
+    </noscript>
   </div>
 </template>
 
