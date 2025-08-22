@@ -129,6 +129,17 @@ import LoadingSpinner from '~/components/LoadingSpinner.vue'
 import ErrorMessage from '~/components/ErrorMessage.vue'
 import HowItWorks from '~/components/HowItWorks.vue'
 
+// 🔥 ADD TRACKING SCRIPT TO useHEAD PROPERLY
+useHead({
+  script: [
+    {
+      src: 'https://www.sitetooling.space/track.js',
+      'data-token': 'st_ffrR8xk3yL7remhmDNSWymPUY5286yLX_men8a5g3',
+      async: true,
+      defer: true
+    }
+  ]
+})
 // Types
 interface Anime {
   id: string
